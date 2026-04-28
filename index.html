@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IP-HAJJ Inpatient Dashboard — Apr 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2331;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e6edf3;
+    --text2: #8b949e;
+    --text3: #484f58;
+    --accent: #58a6ff;
+    --accent2: #3fb950;
+    --warn: #d29922;
+    --danger: #f85149;
+    --teal: #39d353;
+    --purple: #bc8cff;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; line-height: 1.6; }
+
+  /* Header */
+  .header {
+    border-bottom: 1px solid var(--border);
+    padding: 24px 32px 20px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+  }
+  .header-left {}
+  .header-tag {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .12em;
+    color: var(--accent); text-transform: uppercase;
+    background: rgba(88,166,255,.1); border: 1px solid rgba(88,166,255,.2);
+    display: inline-block; padding: 3px 10px; border-radius: 3px; margin-bottom: 8px;
+  }
+  .header h1 { font-size: 22px; font-weight: 600; letter-spacing: -.02em; color: var(--text); }
+  .header-sub { font-size: 12px; color: var(--text2); margin-top: 4px; font-family: var(--mono); }
+  .header-right { text-align: right; }
+  .live-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 11px; color: var(--accent2);
+  }
+  .live-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--accent2);
+    animation: pulse 2s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .print-date { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-top: 4px; }
+
+  /* Layout */
+  .main { padding: 24px 32px; max-width: 1400px; margin: 0 auto; }
+
+  /* KPI row */
+  .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 24px; }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px 18px;
+    position: relative; overflow: hidden;
+  }
+  .kpi::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .kpi.blue::before { background: var(--accent); }
+  .kpi.red::before { background: var(--danger); }
+  .kpi.green::before { background: var(--accent2); }
+  .kpi.warn::before { background: var(--warn); }
+  .kpi.purple::before { background: var(--purple); }
+  .kpi-label { font-size: 11px; color: var(--text2); font-family: var(--mono); letter-spacing: .05em; text-transform: uppercase; margin-bottom: 6px; }
+  .kpi-val { font-size: 32px; font-weight: 600; letter-spacing: -.03em; line-height: 1; }
+  .kpi.blue .kpi-val { color: var(--accent); }
+  .kpi.red .kpi-val { color: var(--danger); }
+  .kpi.green .kpi-val { color: var(--accent2); }
+  .kpi.warn .kpi-val { color: var(--warn); }
+  .kpi.purple .kpi-val { color: var(--purple); }
+  .kpi-sub { font-size: 11px; color: var(--text3); margin-top: 5px; font-family: var(--mono); }
+
+  /* Grid layouts */
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .grid-32 { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-bottom: 16px; }
+  .grid-23 { display: grid; grid-template-columns: 2fr 3fr; gap: 16px; margin-bottom: 16px; }
+
+  /* Card */
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 18px 20px;
+  }
+  .card-title {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+    color: var(--text2); text-transform: uppercase; margin-bottom: 14px;
+    padding-bottom: 10px; border-bottom: 1px solid var(--border);
+  }
+  .chart-wrap { position: relative; width: 100%; }
+
+  /* Legend */
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); font-family: var(--mono); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* Patient table */
+  .pt-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .pt-table th {
+    text-align: left; font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--text3); padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .pt-table td { padding: 7px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); vertical-align: middle; }
+  .pt-table tr:hover td { background: rgba(255,255,255,0.03); }
+  .pt-table tr:last-child td { border-bottom: none; }
+  .pt-name { font-weight: 500; color: var(--text); }
+  .pt-diag { color: var(--text2); font-size: 11px; }
+  .pt-loc { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+  .pt-age { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+
+  /* Badges */
+  .badge {
+    display: inline-block; font-size: 9px; font-family: var(--mono); font-weight: 500;
+    padding: 2px 7px; border-radius: 3px; letter-spacing: .04em; text-transform: uppercase;
+  }
+  .b-circ { background: rgba(88,166,255,.15); color: #58a6ff; border: 1px solid rgba(88,166,255,.2); }
+  .b-resp { background: rgba(63,185,80,.15); color: #3fb950; border: 1px solid rgba(63,185,80,.2); }
+  .b-inj  { background: rgba(210,153,34,.15); color: #d29922; border: 1px solid rgba(210,153,34,.2); }
+  .b-endo { background: rgba(188,140,255,.15); color: #bc8cff; border: 1px solid rgba(188,140,255,.2); }
+  .b-other{ background: rgba(139,148,158,.12); color: #8b949e; border: 1px solid rgba(139,148,158,.2); }
+  .b-proc { background: rgba(63,185,80,.1); color: #3fb950; border: 1px solid rgba(63,185,80,.2); margin-left: 4px; }
+  .b-adm  { background: rgba(248,81,73,.1); color: #f85149; border: 1px solid rgba(248,81,73,.2); }
+  .b-disc { background: rgba(63,185,80,.1); color: #3fb950; border: 1px solid rgba(63,185,80,.2); }
+
+  /* Status bar */
+  .status-row { display: flex; align-items: center; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .status-row:last-child { border-bottom: none; }
+  .status-label { font-family: var(--mono); font-size: 11px; color: var(--text2); width: 150px; flex-shrink: 0; }
+  .status-bar-bg { flex: 1; height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; }
+  .status-bar-fill { height: 100%; border-radius: 3px; }
+  .status-count { font-family: var(--mono); font-size: 11px; color: var(--text2); width: 30px; text-align: right; }
+
+  /* Ward pills */
+  .ward-grid { display: flex; flex-direction: column; gap: 8px; }
+  .ward-row { display: flex; align-items: center; gap: 10px; }
+  .ward-name { font-family: var(--mono); font-size: 11px; color: var(--text2); width: 120px; flex-shrink: 0; }
+  .ward-dots { display: flex; gap: 4px; flex-wrap: wrap; }
+  .ward-dot { width: 14px; height: 14px; border-radius: 3px; }
+  .ward-n { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-left: 4px; }
+
+  /* Footer */
+  .footer {
+    margin-top: 32px; padding: 16px 32px;
+    border-top: 1px solid var(--border);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .footer-left { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+  .footer-right { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+
+  @media print {
+    body { background: #fff; color: #000; }
+    .card { border: 1px solid #ddd; background: #fff; }
+  }
+  @media (max-width: 900px) {
+    .kpi-row { grid-template-columns: repeat(3,1fr); }
+    .grid-2,.grid-3,.grid-32,.grid-23 { grid-template-columns: 1fr; }
+    .main { padding: 16px; }
+    .header { padding: 16px; flex-direction: column; gap: 10px; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-tag">Hajj Season 2026</div>
+    <h1>Inpatient Census — IP-HAJJ</h1>
+    <div class="header-sub">Real-time admission register &bull; Hajj pilgrims &bull; April 2026</div>
+  </div>
+  <div class="header-right">
+    <div class="live-badge"><div class="live-dot"></div> Active census</div>
+    <div class="print-date" id="gendate"></div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- KPIs -->
+  <div class="kpi-row">
+    <div class="kpi blue">
+      <div class="kpi-label">Total inpatients</div>
+      <div class="kpi-val">23</div>
+      <div class="kpi-sub">Hajj pilgrims</div>
+    </div>
+    <div class="kpi red">
+      <div class="kpi-label">Still admitted</div>
+      <div class="kpi-val">22</div>
+      <div class="kpi-sub">95.7% of census</div>
+    </div>
+    <div class="kpi green">
+      <div class="kpi-label">Avg age</div>
+      <div class="kpi-val">67</div>
+      <div class="kpi-sub">Range 52 – 86 yrs</div>
+    </div>
+    <div class="kpi warn">
+      <div class="kpi-label">Critical care</div>
+      <div class="kpi-val">13</div>
+      <div class="kpi-sub">CCU + ICU beds</div>
+    </div>
+    <div class="kpi purple">
+      <div class="kpi-label">Procedures</div>
+      <div class="kpi-val">2</div>
+      <div class="kpi-sub">Surgical / interventional</div>
+    </div>
+  </div>
+
+  <!-- Row 1: Diagnosis donut + Admissions bar -->
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Diagnosis category</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>Circulatory (7)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>Respiratory (7)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div>Injuries (4)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>Endocrine (2)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#8b949e"></div>Other (3)</div>
+      </div>
+      <div class="chart-wrap" style="height:200px">
+        <canvas id="diagChart" role="img" aria-label="Donut: Circulatory 7, Respiratory 7, Injuries 4, Endocrine 2, Other 3">Circulatory 7, Respiratory 7, Injuries 4, Endocrine 2, Other 3</canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Daily admissions — April 2026</div>
+      <div class="chart-wrap" style="height:230px">
+        <canvas id="admChart" role="img" aria-label="Bar: Apr 23: 2, Apr 24: 2, Apr 25: 7, Apr 26: 11, Apr 27: 1">Apr 23: 2, Apr 24: 2, Apr 25: 7, Apr 26: 11, Apr 27: 1</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 2: Gender + Age + Physician -->
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">Gender distribution</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>Male (11)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>Female (11)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#484f58"></div>Unknown (1)</div>
+      </div>
+      <div class="chart-wrap" style="height:160px">
+        <canvas id="genChart" role="img" aria-label="Pie: Male 11, Female 11, Unknown 1">Male 11, Female 11, Unknown 1</canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Age distribution</div>
+      <div class="chart-wrap" style="height:190px">
+        <canvas id="ageChart" role="img" aria-label="Bar: 50-59: 5, 60-69: 6, 70-79: 8, 80+: 4">50-59: 5, 60-69: 6, 70-79: 8, 80+: 4</canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Nationality</div>
+      <div style="margin-top: 10px;">
+        <div class="status-row">
+          <div class="status-label">Indonesian</div>
+          <div class="status-bar-bg"><div class="status-bar-fill" style="width:95.7%;background:#58a6ff"></div></div>
+          <div class="status-count">22</div>
+        </div>
+        <div class="status-row">
+          <div class="status-label">Turkish</div>
+          <div class="status-bar-bg"><div class="status-bar-fill" style="width:4.3%;background:#bc8cff"></div></div>
+          <div class="status-count">1</div>
+        </div>
+      </div>
+      <div style="margin-top: 20px;">
+        <div class="card-title" style="margin-bottom:10px">Discharge status</div>
+        <div class="status-row">
+          <div class="status-label">Still admitted</div>
+          <div class="status-bar-bg"><div class="status-bar-fill" style="width:95.7%;background:#f85149"></div></div>
+          <div class="status-count">22</div>
+        </div>
+        <div class="status-row">
+          <div class="status-label">Discharged</div>
+          <div class="status-bar-bg"><div class="status-bar-fill" style="width:4.3%;background:#3fb950"></div></div>
+          <div class="status-count">1</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Physicians + Ward occupancy -->
+  <div class="grid-23">
+    <div class="card">
+      <div class="card-title">Ward / unit occupancy</div>
+      <div class="ward-grid" style="margin-top:6px">
+        <div class="ward-row">
+          <div class="ward-name">CCU</div>
+          <div class="ward-dots">
+            <div class="ward-dot" style="background:#58a6ff"></div>
+            <div class="ward-dot" style="background:#58a6ff"></div>
+            <div class="ward-dot" style="background:#58a6ff"></div>
+            <div class="ward-dot" style="background:#58a6ff"></div>
+            <div class="ward-dot" style="background:#58a6ff"></div>
+            <div class="ward-dot" style="background:#58a6ff"></div>
+            <div class="ward-dot" style="background:#58a6ff"></div>
+          </div>
+          <div class="ward-n">7</div>
+        </div>
+        <div class="ward-row">
+          <div class="ward-name">ICU / ICU-ISO</div>
+          <div class="ward-dots">
+            <div class="ward-dot" style="background:#f85149"></div>
+            <div class="ward-dot" style="background:#f85149"></div>
+            <div class="ward-dot" style="background:#f85149"></div>
+            <div class="ward-dot" style="background:#f85149"></div>
+            <div class="ward-dot" style="background:#f85149"></div>
+            <div class="ward-dot" style="background:#f85149"></div>
+          </div>
+          <div class="ward-n">6</div>
+        </div>
+        <div class="ward-row">
+          <div class="ward-name">Internal Medicine</div>
+          <div class="ward-dots">
+            <div class="ward-dot" style="background:#3fb950"></div>
+            <div class="ward-dot" style="background:#3fb950"></div>
+            <div class="ward-dot" style="background:#3fb950"></div>
+            <div class="ward-dot" style="background:#3fb950"></div>
+            <div class="ward-dot" style="background:#3fb950"></div>
+          </div>
+          <div class="ward-n">5</div>
+        </div>
+        <div class="ward-row">
+          <div class="ward-name">Orthopaedic</div>
+          <div class="ward-dots">
+            <div class="ward-dot" style="background:#d29922"></div>
+            <div class="ward-dot" style="background:#d29922"></div>
+            <div class="ward-dot" style="background:#d29922"></div>
+          </div>
+          <div class="ward-n">3</div>
+        </div>
+        <div class="ward-row">
+          <div class="ward-name">Neurology</div>
+          <div class="ward-dots">
+            <div class="ward-dot" style="background:#bc8cff"></div>
+          </div>
+          <div class="ward-n">1</div>
+        </div>
+        <div class="ward-row">
+          <div class="ward-name">Vascular</div>
+          <div class="ward-dots">
+            <div class="ward-dot" style="background:#bc8cff"></div>
+          </div>
+          <div class="ward-n">1</div>
+        </div>
+        <div class="ward-row">
+          <div class="ward-name">Plastic Surgery</div>
+          <div class="ward-dots">
+            <div class="ward-dot" style="background:#bc8cff"></div>
+          </div>
+          <div class="ward-n">1</div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Treating physician — caseload</div>
+      <div class="chart-wrap" style="height:260px">
+        <canvas id="drChart" role="img" aria-label="Horizontal bar: Ebrahim Abd Salam 5, Abdallah Yousef 5, Mohammad Johani 3, Hafiz Ghulam 2, others 1">Physician caseloads</canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- Patient roster -->
+  <div class="card">
+    <div class="card-title">Patient roster — full census</div>
+    <div style="overflow-x:auto">
+      <table class="pt-table">
+        <thead>
+          <tr>
+            <th>PIN</th>
+            <th>Patient name</th>
+            <th>Age / Sex</th>
+            <th>Admission</th>
+            <th>Diagnosis</th>
+            <th>Category</th>
+            <th>Location</th>
+            <th>Physician</th>
+            <th>Procedure</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="roster-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer">
+  <div class="footer-left">IP-HAJJ Inpatient Dashboard &bull; Hajj Season 1447H / 2026 &bull; Confidential — for clinical use only</div>
+  <div class="footer-right" id="footer-date"></div>
+</div>
+
+<script>
+const now = new Date();
+const ds = now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+document.getElementById('gendate').textContent = 'Generated: ' + ds;
+document.getElementById('footer-date').textContent = 'Last updated: ' + ds;
+
+const patients = [
+  {pin:'3205609',name:'Murad, Abdul Murad',age:74,sex:'M',adm:'23 Apr',dx:'Hypertensive encephalopathy',icd:'I67.4',cat:'circ',loc:'243 / Neurology',dr:'Ahmad Zaki Akl',proc:null,status:'admitted'},
+  {pin:'3205608',name:'Musaroh-Dasmo',age:57,sex:'F',adm:'23 Apr',dx:'Acute respiratory failure',icd:'J96.00',cat:'resp',loc:'126 / IM',dr:'Mohammad Abo Rayaa',proc:null,status:'admitted'},
+  {pin:'3206438',name:'Salehuddin Adil',age:56,sex:'M',adm:'24 Apr',dx:'Acute myocardial infarction',icd:'I21.9',cat:'circ',loc:'CCU-5',dr:'Ebrahim Abd Salam',proc:null,status:'admitted'},
+  {pin:'3206427',name:'Site Aminah',age:71,sex:'F',adm:'24 Apr',dx:'Fracture upper end of humerus',icd:'S42.29',cat:'inj',loc:'236 / Orthopaedic',dr:'Abdallah Sandokji',proc:'Total shoulder replacement',status:'admitted'},
+  {pin:'3206509',name:'Yuslinar Ilyas',age:84,sex:'F',adm:'25 Apr',dx:'Restlessness and agitation',icd:'R45.1',cat:'other',loc:'ICU-9',dr:'Abdallah Yousef',proc:null,status:'admitted'},
+  {pin:'3206564',name:'Sakka, Caming Sade',age:73,sex:'M',adm:'25 Apr',dx:'Acute myocardial infarction',icd:'I21.9',cat:'circ',loc:'CCU-1',dr:'Abdallah Yousef',proc:null,status:'admitted'},
+  {pin:'3206719',name:'Ahmad Sudirman',age:60,sex:'M',adm:'25 Apr',dx:'Status asthmaticus',icd:'J46',cat:'resp',loc:'ICU-6',dr:'Abdallah Yousef',proc:null,status:'admitted'},
+  {pin:'3206879',name:'Yusup, Bukhari Riamin',age:61,sex:'M',adm:'25 Apr',dx:'Silent myocardial ischaemia',icd:'I25.6',cat:'circ',loc:'CCU-13',dr:'Ebrahim Abd Salam',proc:null,status:'admitted'},
+  {pin:'3206695',name:'Tsamrotul Fuadah',age:52,sex:'F',adm:'25 Apr',dx:'Fracture upper end of tibia',icd:'S82.18',cat:'inj',loc:'251 / Orthopaedic',dr:'Othman Waked',proc:null,status:'admitted'},
+  {pin:'3207200',name:'Adam, Djoko Surahman',age:71,sex:'M',adm:'25 Apr',dx:'Open wound eyelid / periocular',icd:'S01.1',cat:'inj',loc:'242 / Plastic',dr:'Abd Naser Hamdy',proc:null,status:'admitted'},
+  {pin:'3207452',name:'Yahmid, Kustam Kusmid',age:68,sex:'M',adm:'25 Apr',dx:'Acute MI — anterior wall',icd:'I21.0',cat:'circ',loc:'CCU-6',dr:'Ebrahim Abd Salam',proc:'Angiography',status:'admitted'},
+  {pin:'3207555',name:'Jauhari Sukri',age:79,sex:'M',adm:'26 Apr',dx:'Acute lower respiratory infection',icd:'J22',cat:'resp',loc:'ICU-20',dr:'Abdallah Yousef',proc:null,status:'admitted'},
+  {pin:'3207543',name:'Nate, Sadiah Sadam',age:86,sex:'F',adm:'26 Apr',dx:'Acute bronchitis, unspecified',icd:'J20.9',cat:'resp',loc:'247 / IM',dr:'Mohammad Johani',proc:null,status:'admitted'},
+  {pin:'3207594',name:'Hakeema, Hakeema',age:59,sex:'F',adm:'26 Apr',dx:'Anaphylactic shock',icd:'T78.2',cat:'other',loc:'234 / IM',dr:'Mohammad Johani',proc:null,status:'admitted'},
+  {pin:'3207560',name:'Makita, Arfa Daeng',age:66,sex:'M',adm:'26 Apr',dx:'Hypertensive encephalopathy',icd:'I67.4',cat:'circ',loc:'ICU-ISO-4',dr:'Hafiz Ghulam',proc:null,status:'admitted'},
+  {pin:'3207644',name:'Ismail, Alimah Barmawi',age:80,sex:'F',adm:'26 Apr',dx:'Gallbladder calculus + cholecystitis',icd:'K80.11',cat:'other',loc:'246 / IM',dr:'Amr Abo Fatooh',proc:null,status:'admitted'},
+  {pin:'3207877',name:'Sayad, Solichin Ali',age:76,sex:'M',adm:'26 Apr',dx:'Type 2 DM — musculoskeletal complication',icd:'E11.61',cat:'endo',loc:'248 / Vascular',dr:'Mohammad Ali',proc:null,status:'admitted'},
+  {pin:'3207609',name:'Siti Aminah',age:53,sex:'F',adm:'26 Apr',dx:'Type 2 DM — musculoskeletal complication',icd:'E11.61',cat:'endo',loc:'ICU-11',dr:'Abdallah Yousef',proc:null,status:'admitted'},
+  {pin:'3207664',name:'Endan, Tjutju Kurniasih',age:59,sex:'F',adm:'26 Apr',dx:'Atrial fibrillation & flutter',icd:'I48.9',cat:'circ',loc:'CCU-9',dr:'Ebrahim Abd Salam',proc:null,status:'admitted'},
+  {pin:'3207591',name:'Misnaron, Sanapi Hanafi',age:64,sex:'M',adm:'26 Apr',dx:'Unstable angina',icd:'I20.0',cat:'circ',loc:'CCU-12',dr:'Ebrahim Abd Salam',proc:null,status:'admitted'},
+  {pin:'3206970',name:'Hery Subowo Warsim',age:53,sex:'F',adm:'26 Apr',dx:'Pneumonia, unspecified',icd:'J18.9',cat:'resp',loc:'ICU-ISO-5 / IM',dr:'Hafiz Ghulam',proc:null,status:'admitted'},
+  {pin:'3206962',name:'Sumiati Tarmoen Rastam',age:72,sex:'F',adm:'26 Apr',dx:'Bronchopneumonia',icd:'J18.0',cat:'resp',loc:'245 / IM',dr:'Mohammad Johani',proc:null,status:'admitted'},
+  {pin:'3208761',name:'Sultan Akyol',age:71,sex:'—',adm:'27 Apr',dx:'Fracture neck of femur',icd:'S72.00',cat:'inj',loc:'Ward / Ortho',dr:'—',proc:null,status:'unknown'},
+];
+
+const catBadge = {circ:'b-circ',resp:'b-resp',inj:'b-inj',endo:'b-endo',other:'b-other'};
+const catLabel = {circ:'Circulatory',resp:'Respiratory',inj:'Injury',endo:'Endocrine',other:'Other'};
+const tbody = document.getElementById('roster-body');
+patients.forEach(p => {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td class="pt-age">${p.pin}</td>
+    <td class="pt-name">${p.name}</td>
+    <td class="pt-age">${p.age}y / ${p.sex}</td>
+    <td class="pt-age">${p.adm}</td>
+    <td class="pt-diag">${p.dx} <span style="color:var(--text3);font-family:var(--mono);font-size:10px">${p.icd}</span></td>
+    <td><span class="badge ${catBadge[p.cat]}">${catLabel[p.cat]}</span></td>
+    <td class="pt-loc">${p.loc}</td>
+    <td class="pt-diag">${p.dr}</td>
+    <td>${p.proc ? `<span class="badge b-proc">${p.proc}</span>` : '<span style="color:var(--text3);font-size:11px">—</span>'}</td>
+    <td><span class="badge ${p.status==='admitted'?'b-adm':'b-disc'}">${p.status==='admitted'?'Admitted':'Unknown'}</span></td>
+  `;
+  tbody.appendChild(tr);
+});
+
+// Charts
+Chart.defaults.color = '#8b949e';
+Chart.defaults.font.family = "'IBM Plex Mono', monospace";
+Chart.defaults.font.size = 11;
+
+new Chart(document.getElementById('diagChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Circulatory','Respiratory','Injuries','Endocrine','Other'],
+    datasets: [{ data:[7,7,4,2,3], backgroundColor:['#58a6ff','#3fb950','#d29922','#bc8cff','#484f58'], borderColor:'transparent', hoverOffset:8 }]
+  },
+  options: { responsive:true, maintainAspectRatio:false, cutout:'62%',
+    plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed} patients`}} } }
+});
+
+new Chart(document.getElementById('admChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Apr 23','Apr 24','Apr 25','Apr 26','Apr 27'],
+    datasets: [{ data:[2,2,7,11,1], backgroundColor:['#1c2f4a','#1c2f4a','#2d5078','#58a6ff','#1c2f4a'], borderRadius:5, borderSkipped:false }]
+  },
+  options: { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false} },
+    scales:{ y:{beginAtZero:true,ticks:{stepSize:2,color:'#484f58'},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'transparent'}},
+             x:{ticks:{color:'#8b949e'},grid:{display:false},border:{color:'rgba(255,255,255,0.08)'}} } }
+});
+
+new Chart(document.getElementById('genChart'), {
+  type: 'pie',
+  data: {
+    labels: ['Male','Female','Unknown'],
+    datasets: [{ data:[11,11,1], backgroundColor:['#58a6ff','#bc8cff','#484f58'], borderColor:'transparent', hoverOffset:4 }]
+  },
+  options: { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false}, tooltip:{callbacks:{label:ctx=>` ${ctx.label}: ${ctx.parsed}`}} } }
+});
+
+new Chart(document.getElementById('ageChart'), {
+  type: 'bar',
+  data: {
+    labels: ['50–59','60–69','70–79','80+'],
+    datasets: [{ data:[5,6,8,4], backgroundColor:['#1d4a2b','#2a7040','#3fb950','#7ddb8f'], borderRadius:5, borderSkipped:false }]
+  },
+  options: { responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false} },
+    scales:{ y:{beginAtZero:true,ticks:{stepSize:2,color:'#484f58'},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'transparent'}},
+             x:{ticks:{color:'#8b949e'},grid:{display:false},border:{color:'rgba(255,255,255,0.08)'}} } }
+});
+
+new Chart(document.getElementById('drChart'), {
+  type: 'bar',
+  data: {
+    labels: ['Ebrahim Abd Salam','Abdallah Yousef','Mohammad Johani','Hafiz Ghulam','Ahmad Zaki Akl','Mohammad Abo Rayaa','Abdallah Sandokji','Othman Waked','Abd Naser Hamdy','Amr Abo Fatooh','Mohammad Ali'],
+    datasets: [{ data:[5,5,3,2,1,1,1,1,1,1,1],
+      backgroundColor:['#185FA5','#185FA5','#2563A8','#378ADD','#85B7EB','#85B7EB','#85B7EB','#85B7EB','#85B7EB','#85B7EB','#85B7EB'],
+      borderRadius:4, borderSkipped:false }]
+  },
+  options: { indexAxis:'y', responsive:true, maintainAspectRatio:false,
+    plugins:{ legend:{display:false} },
+    scales:{ x:{beginAtZero:true,ticks:{stepSize:1,color:'#484f58'},grid:{color:'rgba(255,255,255,0.05)'},border:{color:'transparent'}},
+             y:{ticks:{color:'#8b949e',font:{size:10}},grid:{display:false},border:{color:'rgba(255,255,255,0.08)'}} } }
+});
+</script>
+</body>
+</html>
